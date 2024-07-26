@@ -32,6 +32,7 @@ Password: **demo**
 - [Why yet another self-hosted photo gallery](#why-yet-another-self-hosted-photo-gallery)
 - [Getting started — Setup with Docker](#getting-started--setup-with-docker)
 - [Advanced setup](#advanced-setup)
+- [Contributing](#contributing)
 - [Set up development environment](#set-up-development-environment)
 - [Sponsors](#sponsors)
 
@@ -156,45 +157,152 @@ Possible ways of securing a self-hosted service might be (but not limited to):
 
 Setting up and configuring of all these protections depends on and requires a lot of info about your local network and self-hosted services. Based on this info, the configuration flow and resulting services architecture might differ a lot between cases. That is why in the scope of this project, we can only provide you with this high-level list of possible ways of webservice protection. You'll need to investigate them, find the best combination and configuration for your case, and take responsibility to configure everything in the correct and consistent way. We cannot provide you support for such highly secured setups, as a lot of things might work differently because of security limitations.
 
-## Set up development environment
+## Contributing
+
+🎉 First off, thanks for your interest in contribution! 🎉
+
+This project is a result of hard work, and it's great to see you interested in contributing. 
+Contributions are not just about code — you can help in many ways!
+
+Before you start, please take a moment to read our [Contributing guide](./CONTRIBUTING.md). 
+It includes information on our code of conduct, the process for submitting pull requests, and more.
+
+Remember, every contribution counts. Let's make this project better together! 💪
+
+## Set up Docker development environment
+
+Docker development environment is easy to set up. It only requires [Docker](https://docs.docker.com/engine/install/) and [Docker Compose Plugin](https://docs.docker.com/compose/install/) locally. All dependencies are installed in a container but not in the host.
+
+It also has some shortcomings. In macOS, Docker is running in a Linux VM. The fs notification doesn't work well in this case. You can't use `reflex` or `nodemon` to relaunch servers when code changes. The compiler runs pretty slow too.
+
+We recommend to use Docker development environment. If Docker environment doesn't work well, like on macOS, please use [local development environment](#set-up-local-development-environment).
+
+### Start API and UI server with Docker Compose
+
+It may take a long time to build dependencies when launching servers first time.
+
+```sh
+$ docker compose -f dev-compose.yaml build dev-ui dev-api # Build images for development
+$ docker compose -f dev-compose.yaml up dev-api dev-ui # Run API and UI servers
+```
+
+The graphql playground can now be accessed at [localhost:4001](http://localhost:4001). The site can now be accessed at [localhost:1234](http://localhost:1234). Both servers will be relaunched after the code is changed.
+
+### Start API server with Docker
+
+If you don't want to depend on Docker Compose but only Docker, you can launch server as below.
+
+It may take a long time to build dependencies when launching servers first time.
+
+```sh
+$ docker build --target dev-api -t photoview-api . # Build image for development
+$ cp api/example.env api/.env
+$ docker run --rm -it -v `pwd`:/app --network host photoview-api # Monitor source code and (re)launch API server
+```
+
+The graphql playground can now be accessed at [localhost:4001](http://localhost:4001).
+
+### Start UI server with Docker
+
+It may take a long time to build dependencies when launching servers first time.
+
+```sh
+$ docker build --target dev-ui -t photoview-ui .
+$ cp ./ui/example.env ./ui/.env
+$ docker run --rm -it -v `pwd`:/app --network host photoview-ui # Monitor source code and (re)launch UI server
+```
+
+The site can now be accessed at [localhost:1234](http://localhost:1234).
+
+## Set up local development environment
+
+### Install dependencies
+
+- API
+  - Required packages:
+    - `golang` >= 1.22
+    - `g++`
+    - `libc-dev`
+    - `libheif` >= 1.15.1
+    - [go-face Requirements](https://github.com/Kagami/go-face#requirements) 
+        - `dlib`
+        - `libjpeg`
+        - `libblas` 
+        - `libcblas`, recommended using `libatlas-base`
+        - `liblapack`
+  - Optional tools during developing:
+    - [`reflex`](https://github.com/cespare/reflex): a source code monitoring tool, which automatically rebuilds and restarts the server, running from the code in development.
+    - `sqlite`: the SQLite DBMS, useful to interact with Photoview's SQLite DB directly if you use it in your development environment.
+- UI
+  - Required packages:
+    - `node` = 18
+
+In Debian/Ubuntu, install dependencies:
+
+```sh
+$ sudo apt update # Update the package list
+$ sudo apt install golang g++ libc-dev libheif-dev libdlib-dev libjpeg-dev libblas-dev libatlas-base-dev liblapack-dev # For API requirement
+$ sudo apt install reflex sqlite3 # For API optional tools
+```
+
+In macOS, install dependencies:
+
+```sh
+$ brew update # Update the package list
+$ brew install golang gcc libheif dlib jpeg # For API
+$ brew install reflex sqlite3 # For API optional tools
+```
+
+Please follow the package manager guidance if you don't use `apt` or `homebrew`.
+
+For `node`, recommend to use [nvm](https://github.com/nvm-sh/nvm). Follow [Installing and Updating](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) to install `nvm` locally, then:
+
+```sh
+$ nvm install 18
+$ nvm use 18
+```
+
+You can install `node` with other package manager if you like.
 
 ### Local setup
 
-1. Install a local mysql server, and make a new database
-2. Rename `/api/example.env` to `.env` and update the `MYSQL_URL` field
-3. Rename `/ui/example.env` to `.env`
+1. Rename `/api/example.env` to `.env`
+  - Update `PHOTOVIEW_SQLITE_PATH` if you don't want to put sqlite file under `/api`
+  - To set a different DBMS driver
+    - Comment the SQLite path variable
+    - Update `PHOTOVIEW_DATABASE_DRIVER` with your driver
+    - Uncomment the corresponding connection string variable for the new driver
+  - Optional: modify other variables if needed according to the inline comments
+2. Rename `/ui/example.env` to `.env`
 
 ### Start API server
-
-Make sure [golang](https://golang.org/) is installed.
-
-Some C libraries are needed to compile the API, see [go-face requirements](https://github.com/Kagami/go-face#requirements) for more details.
-They can be installed as shown below:
-
-```sh
-# Ubuntu
-sudo add-apt-repository ppa:strukturag/libheif
-sudo add-apt-repository ppa:strukturag/libde265
-sudo apt-get update
-sudo apt-get install libdlib-dev libblas-dev libatlas-base-dev liblapack-dev libjpeg-turbo8-dev libheif-dev
-# Debian
-sudo apt-get install libdlib-dev libblas-dev libatlas-base-dev liblapack-dev libjpeg62-turbo-dev libheif-dev
-# macOS
-brew install dlib libheif
-
-```
 
 Then run the following commands:
 
 ```bash
-cd ./api
-go install
-go run server.go
+# Optional: Set the compiler environment in Debian/Ubuntu
+$ source ./scripts/set_compiler_env.sh
+# Set the compiler environment with `homebrew`
+$ export CPLUS_INCLUDE_PATH="$(brew --prefix)/opt/jpeg/include:$(brew --prefix)/opt/dlib/include"
+$ export LD_LIBRARY_PATH="$(brew --prefix)/opt/jpeg/lib:$(brew --prefix)/opt/dlib/lib"
+$ export LIBRARY_PATH="$(brew --prefix)/opt/jpeg/lib:$(brew --prefix)/opt/dlib/lib"
+# Start API server
+$ cd ./api
+$ go run .
 ```
+
+If you want to recompile the server automatically when code changes:
+
+```sh
+# Start API server
+$ cd ./api
+$ reflex -g '*.go' -s -- go run .
+```
+
+The graphql playground can now be accessed at [localhost:4001](http://localhost:4001).
 
 ### Start UI server
 
-Make sure [node](https://nodejs.org/en/) is installed.
 In a new terminal window run the following commands:
 
 ```bash
@@ -203,8 +311,14 @@ npm install
 npm start
 ```
 
+If you want to recompile the server automatically when code changes:
+
+```sh
+$ cd ./ui
+$ npm run mon
+```
+
 The site can now be accessed at [localhost:1234](http://localhost:1234).
-And the graphql playground at [localhost:4001](http://localhost:4001)
 
 ## Sponsors
 
